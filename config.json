@@ -1,0 +1,43 @@
+{
+  "interface": "/dev/ttyUSB0",
+  "channel": null,
+  "channels": [11, 15, 20, 25],
+  "target_panids": [],
+  "target_eui64s": [],
+  "timeout_per_phase": 300,
+  "capture_duration": 3600,
+  "phases": {
+    "survey": true,
+    "key_recovery": true,
+    "enumeration": true,
+    "attacks": false,
+    "firmware": false
+  },
+  "tools": {
+    "zbstumbler": "zbstumbler",
+    "zbdump": "zbdump",
+    "zbdsniff": "zbdsniff",
+    "zbscapy": "zbscapy",
+    "zbreplay": "zbreplay",
+    "zbassocflood": "zbassocflood",
+    "zbpanidconflictflood": "zbpanidconflictflood",
+    "zbfind": "zbfind",
+    "zbid": "zbid",
+    "z3sec": "python3 /opt/z3sec/z3sec.py",
+    "goodfet": "goodfet.cc",
+    "openocd": "openocd",
+    "binwalk": "binwalk",
+    "tshark": "tshark"
+  },
+  "zll_master_key": "",
+  "network_keys": [],
+  "known_tclk": "5A6967426565416C6C69616E636530392039",
+  "scope": {
+    "panids": [],
+    "eui64s": []
+  },
+  "output_dir": "aether_z_output",
+  "physical_access": false,
+  "injection_authorized": false,
+  "dos_authorized": false
+}

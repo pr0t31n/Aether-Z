@@ -1,0 +1,3 @@
+# Aether-Z — ZigBee / IEEE 802.15.4 Penetration Test Orchestrator
+# No external pip packages required; aether_z.py uses Python standard library only.
+# System tools are installed by install.py.
