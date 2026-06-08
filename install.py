@@ -371,87 +371,6 @@ def phase_symlinks(dry_run: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Phase 6 — Service installation
-# ---------------------------------------------------------------------------
-
-SYSTEMD_SERVICE = """\
-[Unit]
-Description=Aether-Z ZigBee Penetration Test Orchestrator
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/bin/python3 /Users/pr0t31n/Aether-Z/aether_z.py
-WorkingDirectory=/Users/pr0t31n/Aether-Z
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-"""
-
-LAUNCHD_PLIST = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.pr0t31n.aether-z</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/python3</string>
-        <string>/Users/pr0t31n/Aether-Z/aether_z.py</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/Users/pr0t31n/Aether-Z</string>
-    <key>RunAtLoad</key>
-    <false/>
-    <key>KeepAlive</key>
-    <false/>
-    <key>StandardOutPath</key>
-    <string>/var/log/aether-z.log</string>
-    <key>StandardErrorPath</key>
-    <string>/var/log/aether-z.err</string>
-</dict>
-</plist>
-"""
-
-
-def phase_service(os_id: str, dry_run: bool) -> None:
-    phase_header("PHASE 6 — Service Installation")
-    if os_id in ("kali", "ubuntu", "rhel", "suse"):
-        service_path = Path("/etc/systemd/system/pr0t31n-aether-z.service")
-        info(f"Writing systemd unit: {service_path}")
-        if not dry_run:
-            try:
-                service_path.write_text(SYSTEMD_SERVICE)
-                run(["systemctl", "daemon-reload"], dry_run=dry_run)
-                run(["systemctl", "enable", "pr0t31n-aether-z"], dry_run=dry_run)
-                success("Systemd service installed and enabled.")
-            except OSError as exc:
-                error(f"Failed to write service file: {exc}")
-        else:
-            cprint(f"    [DRY-RUN] Would write {service_path}", MAGENTA)
-
-    elif os_id == "macos":
-        plist_path = Path("/Library/LaunchDaemons/com.pr0t31n.aether-z.plist")
-        info(f"Writing launchd plist: {plist_path}")
-        if not dry_run:
-            try:
-                plist_path.write_text(LAUNCHD_PLIST)
-                run(["launchctl", "load", str(plist_path)], dry_run=dry_run)
-                success("Launchd plist installed and loaded.")
-            except OSError as exc:
-                error(f"Failed to write plist: {exc}")
-        else:
-            cprint(f"    [DRY-RUN] Would write {plist_path}", MAGENTA)
-    else:
-        warn("Service installation skipped for this OS.")
-
-
-# ---------------------------------------------------------------------------
 # Post-install verification
 # ---------------------------------------------------------------------------
 
@@ -625,12 +544,6 @@ def main() -> None:
             warn("Not running as root — skipping symlink creation.")
     elif dry_run:
         phase_symlinks(dry_run)
-
-    # Phase 6 — Service
-    if is_root() or dry_run:
-        phase_service(os_id, dry_run)
-    else:
-        warn("Not running as root — skipping service installation.")
 
     # Summary and verification
     print_summary(os_id)

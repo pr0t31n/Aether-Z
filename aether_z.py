@@ -23,7 +23,7 @@ Usage:
 """
 from __future__ import annotations
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 import argparse
 import json
