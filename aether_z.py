@@ -23,7 +23,7 @@ Usage:
 """
 from __future__ import annotations
 
-VERSION = "1.0.4"
+VERSION = "1.1.1"
 
 import argparse
 import json
@@ -35,6 +35,14 @@ import shutil
 import signal
 import subprocess
 import sys
+
+# 2026-06-12 cross-cutting #156: route subprocess through pr0t31n_tool_runner
+try:
+    if "/opt/pr0t31n/shared" not in sys.path:
+        sys.path.insert(0, "/opt/pr0t31n/shared")
+    import pr0t31n_tool_runner as _ur
+except ImportError:
+    _ur = None
 import threading
 import time
 import uuid
@@ -274,18 +282,27 @@ def _resolve_tool(cfg: dict, key: str) -> Optional[str]:
 
 # ── Subprocess helpers ────────────────────────────────────────────────────────
 
-def _run(cmd: list, timeout: int = 60, cwd: Optional[str] = None) -> tuple[str, int]:
-    """Run a command with timeout; return (stdout+stderr, returncode)."""
+def _run(cmd: list, timeout: int = 60, cwd: Optional[str] = None,
+         output_file: Optional[str] = None) -> tuple[str, int]:
+    """Run a command with timeout; return (stdout+stderr, returncode).
+    2026-06-12 cross-cutting #156: when pr0t31n_tool_runner is available
+    every invocation auto-emits a `.log` sibling per §14."""
     try:
-        r = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-            cwd=cwd,
-        )
-        return r.stdout + r.stderr, r.returncode
+        if _ur is not None:
+            r = _ur.run_tool(
+                cmd, timeout=timeout, output_file=output_file,
+                cwd=cwd, tool_name=(cmd[0] if cmd else ""),
+            )
+        else:
+            r = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+                cwd=cwd,
+            )
+        return (r.stdout or "") + (r.stderr or ""), r.returncode
     except subprocess.TimeoutExpired:
         return "(timeout)", -1
     except FileNotFoundError:
@@ -679,8 +696,160 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
         json.dumps({"recovered_keys": recovered_keys, "default_tclk_seen": default_tclk_seen}, indent=2),
         encoding="utf-8",
     )
+    # 2026-06-11 review round 5: ZigBee 3.0 install-code derivation
+    try:
+        _zigbee3_install_code_derive(cfg, output_dir, recovered_keys)
+    except Exception as exc:
+        _err(f"[1c] install-code derive error: {exc}")
+    # 2026-06-11 review round 5: Touchlink replay-only (passive)
+    try:
+        _touchlink_replay_only(cfg, output_dir)
+    except Exception as exc:
+        _err(f"[1d] touchlink replay-only error: {exc}")
+
     _log(f"[1] Key recovery complete — {len(recovered_keys)} key(s) recovered")
     _status(phase_id, "complete", f"{len(recovered_keys)} key(s) recovered")
+
+
+# ── Phase 1c: ZigBee 3.0 install-code derivation ──────────────────────────────
+# 2026-06-11 review round 5: ZigBee 3.0 requires every device to ship with
+# a printed install-code (8/10/14/18 bytes + 2-byte CRC).  The device
+# joins by deriving its initial trust-center link key as
+#   TCLK = AES-128-MMO(install_code)  (per ZigBee Pro spec sec B.3)
+# When the operator provides install-codes for in-scope devices, we
+# pre-derive the expected TCLKs so any sniffed APS commissioning frame
+# can be decrypted offline.  zbpython.aes_mmo() is the cryptographic
+# primitive when killerbee is installed; otherwise we fall back to a
+# pure-Python AES-MMO implementation via cryptography.
+
+def _zigbee3_install_code_derive(cfg: dict, output_dir: Path,
+                                   recovered_keys: list) -> None:
+    install_codes = cfg.get("install_codes", []) or []
+    if not install_codes:
+        _log("[1c] ZB3 install-code: none configured — skipping")
+        return
+
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
+    except ImportError:
+        _log("[1c] ZB3 install-code: cryptography package missing — skipping")
+        return
+
+    out_dir = output_dir / "install_codes"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def _aes_mmo(data: bytes) -> bytes:
+        """Matyas-Meyer-Oseas one-way hash on AES-128 — per ZigBee Pro B.3."""
+        h = bytes(16)
+        # Append 0x80 + zero-pad + 2-byte length-in-bits (big-endian) per spec
+        bit_len = len(data) * 8
+        padded = data + b"\x80"
+        while (len(padded) % 16) != 14:
+            padded += b"\x00"
+        padded += bit_len.to_bytes(2, "big")
+        backend = default_backend()
+        for i in range(0, len(padded), 16):
+            block = padded[i:i+16]
+            cipher = Cipher(algorithms.AES(h), modes.ECB(), backend=backend)
+            enc = cipher.encryptor().update(block) + cipher.encryptor().finalize()
+            h = bytes(a ^ b for a, b in zip(enc, block))
+        return h
+
+    derived = []
+    for entry in install_codes:
+        eui64 = (entry.get("eui64") or "").upper()
+        ic_hex = (entry.get("install_code") or "").replace(":", "").replace(" ", "").replace("-", "")
+        if not eui64 or not ic_hex:
+            continue
+        try:
+            ic_bytes = bytes.fromhex(ic_hex)
+        except ValueError:
+            _log(f"[1c] ZB3 install-code: bad hex for {eui64}, skipping")
+            continue
+        # Valid install-code lengths (with CRC): 8/10/14/18 bytes
+        if len(ic_bytes) not in (8, 10, 14, 18):
+            _log(f"[1c] ZB3 install-code: {eui64} length {len(ic_bytes)} not 8/10/14/18 — accepting anyway")
+        # Strip the 2-byte CRC from the end to feed the actual key material
+        key_material = ic_bytes[:-2] if len(ic_bytes) > 2 else ic_bytes
+        tclk = _aes_mmo(key_material)
+        rec = {
+            "eui64": eui64,
+            "install_code_hex": ic_hex,
+            "derived_tclk_hex": tclk.hex().upper(),
+            "method": "AES-MMO of install-code (ZigBee Pro B.3)",
+        }
+        derived.append(rec)
+        recovered_keys.append({
+            "eui64": eui64,
+            "key": tclk.hex().upper(),
+            "type": "trust_center_link_key",
+            "source": "install_code_derive",
+        })
+
+    if derived:
+        manifest = out_dir / "derived_tclks.json"
+        manifest.write_text(json.dumps(derived, indent=2), encoding="utf-8")
+        _finding(
+            "zigbee3_install_code_derive",
+            output_file=str(manifest),
+            data={"derived_count": len(derived),
+                  "method": "AES-MMO install-code → TCLK (ZB3 join)",
+                  "attack": "Operator-provided install-codes pre-derive TCLKs for offline APS decryption"},
+        )
+        _log(f"[1c] ZB3 install-code: {len(derived)} TCLK(s) derived")
+    else:
+        _log("[1c] ZB3 install-code: no valid install-codes found")
+
+
+# ── Phase 1d: Touchlink replay-only (passive) ─────────────────────────────────
+# 2026-06-11 review round 5: complements the existing active touchlink
+# attack (3c) which requires injection_authorized.  This passive variant
+# scans any pre-existing pcap files for ZLL commissioning frames and
+# emits findings when the master key is in use or when devices are
+# discoverable.  No injection occurs — read-only on the pcap files.
+
+def _touchlink_replay_only(cfg: dict, output_dir: Path) -> None:
+    pcaps = list(output_dir.glob("**/*.pcap")) + list(output_dir.glob("**/*.pcapng"))
+    if not pcaps:
+        _log("[1d] Touchlink replay-only: no pcap files to inspect")
+        return
+    tshark = _check_tool("tshark")
+    if not tshark:
+        _log("[1d] Touchlink replay-only: tshark not installed — skipping")
+        return
+
+    out_dir = output_dir / "touchlink_replay"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ZigBee ZLL commissioning cluster ID = 0x1000
+    # ZLL scan request cmd = 0x00, scan response = 0x01, identify = 0x06
+    detected = []
+    for pcap in pcaps:
+        out_file = out_dir / f"{pcap.stem}_zll_scan.txt"
+        ts_cmd = [tshark, "-r", str(pcap),
+                   "-Y", "zbee_zcl_general.touchlink || zbee_aps.cluster == 0x1000",
+                   "-T", "fields",
+                   "-e", "frame.number",
+                   "-e", "zbee_nwk.src",
+                   "-e", "zbee_nwk.dst",
+                   "-e", "zbee_zcl_general.touchlink.cmd"]
+        out, _ = _run(ts_cmd, timeout=60)
+        out_file.write_text(out, encoding="utf-8")
+        if out.strip():
+            n = len(out.strip().splitlines())
+            detected.append({"pcap": str(pcap), "frame_count": n})
+            _finding(
+                "touchlink_replay_only_detected",
+                output_file=str(out_file),
+                data={"pcap": str(pcap), "frame_count": n,
+                      "method": "passive ZLL commissioning frame detection",
+                      "attack": "Touchlink (ZLL) commissioning observed — devices may accept reset/steal"},
+            )
+            _log(f"[1d] Touchlink replay-only: {n} ZLL frame(s) in {pcap.name}")
+
+    if not detected:
+        _log("[1d] Touchlink replay-only: no ZLL commissioning frames detected in any pcap")
 
 
 # ── Phase 2: Active Enumeration ───────────────────────────────────────────────
