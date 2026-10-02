@@ -304,6 +304,14 @@ GIT_REPOS = [
         "label":     "Z3sec",
         "notes":     "ZigBee / ZLL security analysis and touchlink attack tool",
     },
+    {
+        "url":       "https://github.com/travisgoodspeed/goodfet",
+        "dest":      "/opt/goodfet",
+        "post":      ["pip3", "install", "--break-system-packages", "-e", "/opt/goodfet"],
+        "post_cwd":  None,
+        "label":     "GoodFET",
+        "notes":     "JTAG / SPI / I2C / CC2530 bus adapter toolkit (goodfet.cc for CC chip programming)",
+    },
 ]
 
 
