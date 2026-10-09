@@ -67,6 +67,13 @@ try:
 except Exception:
     _el = None
 _RUNLOG = None
+
+try:
+    import pr0t31n_pause as _pp
+except ImportError:
+    _pp = None
+_PAUSE = None
+
 _SP_FINDING = "__SPECTRE_FINDING__"
 _SP_PROMPT  = "__SPECTRE_PROMPT__"
 
@@ -1491,11 +1498,15 @@ def run(cfg: dict, project_dir: Path) -> None:
     _log(f"Output   : {output_dir}")
     _log("=" * 60)
 
+    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+
     # Phase 0 — Survey
     if phases_cfg.get("survey", True):
         phase_survey(cfg, output_dir)
     else:
         _log("[~] Phase survey disabled in config — skipping")
+
+    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
 
     # Phase 1 — Key Recovery
     if phases_cfg.get("key_recovery", True):
@@ -1503,17 +1514,23 @@ def run(cfg: dict, project_dir: Path) -> None:
     else:
         _log("[~] Phase key_recovery disabled in config — skipping")
 
+    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+
     # Phase 2 — Enumeration
     if phases_cfg.get("enumeration", True):
         phase_enumeration(cfg, output_dir)
     else:
         _log("[~] Phase enumeration disabled in config — skipping")
 
+    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+
     # Phase 3 — Attacks
     if phases_cfg.get("attacks", False):
         phase_attacks(cfg, output_dir)
     else:
         _log("[~] Phase attacks disabled in config — skipping (set attacks: true to enable)")
+
+    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
 
     # Phase 4 — Firmware
     if phases_cfg.get("firmware", False):
@@ -1523,6 +1540,9 @@ def run(cfg: dict, project_dir: Path) -> None:
 
     # Persist findings and metadata
     _save_findings(output_dir)
+
+    if _PAUSE:
+        _PAUSE.write_stop_reason("completed", "all_phases_done")
 
     meta = {
         "version": VERSION,
@@ -1689,6 +1709,16 @@ def main() -> None:
             _RUNLOG.event(f"Aether-Z v{VERSION} started")
         except Exception:
             _RUNLOG = None
+
+    global _PAUSE
+    if _pp is not None:
+        _PAUSE = _pp.PauseManager(str(project_dir), "aether-z")
+        _PAUSE.start_watcher(grace_period=60)
+        _resumed = os.environ.get("CRUCIBLE_RESUME") == "1"
+        _PAUSE.log_run_type(resumed=_resumed)
+        if _resumed:
+            _PAUSE.cleanup_incomplete()
+
     _write_project_meta(
         project_dir,
         tool=os.environ.get("SPECTRE_TOOL_ID", "aether-z"),
