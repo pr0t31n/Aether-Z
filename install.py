@@ -319,6 +319,23 @@ _GOODFET_SCRIPTS = [
 ]
 
 
+def _pip_installed(pkg_spec: str) -> bool:
+    """Check whether a pip package is already importable."""
+    import importlib.util
+    name = pkg_spec.split(">=")[0].split("==")[0].split("[")[0].split("<")[0].strip()
+    _IMPORT_MAP = {
+        "pyusb": "usb", "scapy": "scapy", "pyserial": "serial",
+        "python-whois": "whois", "beautifulsoup4": "bs4",
+        "pyOpenSSL": "OpenSSL", "dnspython": "dns", "pyyaml": "yaml",
+        "Pillow": "PIL", "charset-normalizer": "charset_normalizer",
+    }
+    mod = _IMPORT_MAP.get(name, name.replace("-", "_"))
+    try:
+        return importlib.util.find_spec(mod) is not None
+    except (ModuleNotFoundError, ValueError):
+        return False
+
+
 def clone_or_update(repo: dict, dry_run: bool) -> bool:
     url   = repo["url"]
     dest  = repo["dest"]
@@ -350,9 +367,19 @@ def _install_killerbee(dry_run: bool) -> None:
     system-wide.  Pre-installing the runtime deps and disabling build
     isolation lets the import succeed.
     """
-    info("KillerBee: pre-installing pyusb and scapy...")
-    run(["pip3", "install", "--break-system-packages", "pyusb>=1.0", "scapy"],
-        dry_run=dry_run)
+    pre_deps = {"pyusb>=1.0": "pyusb", "scapy": "scapy"}
+    missing_deps = []
+    for spec, _ in pre_deps.items():
+        if _pip_installed(spec):
+            info(f"KillerBee:   ✓ {spec} already installed")
+        else:
+            missing_deps.append(spec)
+    if missing_deps:
+        info(f"KillerBee: pre-installing {', '.join(missing_deps)}...")
+        run(["pip3", "install", "--break-system-packages"] + missing_deps,
+            dry_run=dry_run)
+    else:
+        info("KillerBee: all pre-deps already present")
     info("KillerBee: installing in editable mode (--no-build-isolation)...")
     run(["pip3", "install", "--break-system-packages", "--no-build-isolation",
          "-e", "/opt/killerbee"], dry_run=dry_run)
