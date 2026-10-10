@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # install.py — Aether-Z ZigBee Penetration Test Orchestrator
-# VERSION: 1.0.0 (referenced from /Users/pr0t31n/Aether-Z/VERSION — do not bump here)
+# VERSION: 1.1.0 (referenced from /opt/pr0t31n/Aether-Z/VERSION — do not bump here)
 # Installs all dependencies for aether_z.py and configures the system.
 
 import argparse
@@ -135,6 +135,7 @@ APT_PACKAGES = [
     "python3-dev",
     "git",
     "libusb-1.0-0-dev",
+    "libgcrypt-dev",
     "build-essential",
     "pkg-config",
     "wireshark",
@@ -150,6 +151,7 @@ DNF_PACKAGES = [
     "python3-devel",
     "git",
     "libusbx-devel",
+    "libgcrypt-devel",
     "gcc",
     "gcc-c++",
     "make",
@@ -290,32 +292,34 @@ GIT_REPOS = [
     {
         "url":       "https://github.com/riverloopsec/killerbee",
         "dest":      "/opt/killerbee",
-        "post":      ["pip3", "install", "--break-system-packages", "-e", "/opt/killerbee"],
-        "post_cwd":  None,
         "label":     "KillerBee",
         "notes":     "ZigBee / IEEE 802.15.4 security toolkit (zbstumbler, zbdump, zbdsniff, etc.)",
     },
     {
         "url":       "https://github.com/IoTsec/Z3sec",
         "dest":      "/opt/z3sec",
-        "post":      ["pip3", "install", "--break-system-packages", "-r",
-                      "/opt/z3sec/requirements.txt"],
-        "post_cwd":  None,
         "label":     "Z3sec",
         "notes":     "ZigBee / ZLL security analysis and touchlink attack tool",
     },
     {
         "url":       "https://github.com/travisgoodspeed/goodfet",
         "dest":      "/opt/goodfet",
-        "post":      ["pip3", "install", "--break-system-packages", "-e", "/opt/goodfet"],
-        "post_cwd":  None,
         "label":     "GoodFET",
         "notes":     "JTAG / SPI / I2C / CC2530 bus adapter toolkit (goodfet.cc for CC chip programming)",
     },
 ]
 
+_GOODFET_SCRIPTS = [
+    "goodfet", "goodfet.arm7", "goodfet.arm9", "goodfet.avr",
+    "goodfet.bsl", "goodfet.bslold", "goodfet.bslv2", "goodfet.cc",
+    "goodfet.cc2500", "goodfet.ccspi", "goodfet.i2ceeprom",
+    "goodfet.jtag", "goodfet.maxusb", "goodfet.monitor", "goodfet.msp430",
+    "goodfet.nrf", "goodfet.pic", "goodfet.rf", "goodfet.spi",
+    "goodfet.spi25c", "goodfet.spiflash",
+]
 
-def clone_or_update(repo: dict, dry_run: bool) -> None:
+
+def clone_or_update(repo: dict, dry_run: bool) -> bool:
     url   = repo["url"]
     dest  = repo["dest"]
     label = repo["label"]
@@ -331,14 +335,76 @@ def clone_or_update(repo: dict, dry_run: bool) -> None:
         rc = run(["git", "clone", "--depth=1", url, dest], check=True, dry_run=dry_run)
         if rc != 0:
             error(f"{label}: clone failed — skipping post-install steps.")
-            return
-
-    if repo.get("post"):
-        info(f"{label}: running post-install step...")
-        run(repo["post"], cwd=repo.get("post_cwd"), dry_run=dry_run)
+            return False
 
     if repo.get("notes"):
         info(f"{label}: {repo['notes']}")
+    return True
+
+
+def _install_killerbee(dry_run: bool) -> None:
+    """Pre-install pyusb+scapy then editable-install KillerBee.
+
+    KillerBee's setup.py does `import usb` at build time.  Under pip's
+    default build isolation that import fails even when pyusb is installed
+    system-wide.  Pre-installing the runtime deps and disabling build
+    isolation lets the import succeed.
+    """
+    info("KillerBee: pre-installing pyusb and scapy...")
+    run(["pip3", "install", "--break-system-packages", "pyusb>=1.0", "scapy"],
+        dry_run=dry_run)
+    info("KillerBee: installing in editable mode (--no-build-isolation)...")
+    run(["pip3", "install", "--break-system-packages", "--no-build-isolation",
+         "-e", "/opt/killerbee"], dry_run=dry_run)
+
+
+def _install_z3sec(dry_run: bool) -> None:
+    """Install Z3sec via its setup.py (repo has no requirements.txt)."""
+    setup_py = Path("/opt/z3sec/setup.py")
+    if setup_py.exists():
+        info("Z3sec: installing via setup.py...")
+        run(["pip3", "install", "--break-system-packages", "-e", "/opt/z3sec"],
+            dry_run=dry_run)
+    else:
+        deps_sh = Path("/opt/z3sec/install_dependencies.sh")
+        if deps_sh.exists():
+            info("Z3sec: running install_dependencies.sh...")
+            run(["bash", str(deps_sh)], cwd="/opt/z3sec", dry_run=dry_run)
+        else:
+            warn("Z3sec: no setup.py or install_dependencies.sh found — skipping.")
+
+
+def _install_goodfet(dry_run: bool) -> None:
+    """Symlink GoodFET client scripts into PATH.
+
+    GoodFET predates modern Python packaging (no setup.py/pyproject.toml).
+    The usable scripts live in client/ — symlink them to /usr/local/bin/.
+    """
+    client_dir = Path("/opt/goodfet/client")
+    if not client_dir.is_dir():
+        warn("GoodFET: client/ directory not found — skipping symlinks.")
+        return
+    pythonpath_file = Path("/opt/goodfet/client/lib")
+    info("GoodFET: symlinking client scripts to /usr/local/bin/...")
+    for script_name in _GOODFET_SCRIPTS:
+        src = client_dir / script_name
+        dst = Path("/usr/local/bin") / script_name
+        if not src.exists():
+            continue
+        if dst.is_symlink() or dst.exists():
+            if not dry_run:
+                try:
+                    dst.unlink()
+                except OSError:
+                    pass
+        if not dry_run:
+            try:
+                dst.symlink_to(src)
+                src.chmod(0o755)
+            except OSError as exc:
+                error(f"Could not symlink {script_name}: {exc}")
+                continue
+        success(f"  {script_name} → {src}")
 
 
 def phase_git(os_id: str, dry_run: bool) -> None:
@@ -353,6 +419,12 @@ def phase_git(os_id: str, dry_run: bool) -> None:
         return
     for repo in GIT_REPOS:
         clone_or_update(repo, dry_run)
+    if Path("/opt/killerbee").exists():
+        _install_killerbee(dry_run)
+    if Path("/opt/z3sec").exists():
+        _install_z3sec(dry_run)
+    if Path("/opt/goodfet").exists():
+        _install_goodfet(dry_run)
     success("Git phase complete.")
 
 
@@ -361,7 +433,7 @@ def phase_git(os_id: str, dry_run: bool) -> None:
 # ---------------------------------------------------------------------------
 
 SYMLINKS = {
-    "/usr/local/bin/aether-z": "/Users/pr0t31n/Aether-Z/aether_z.py",
+    "/usr/local/bin/aether-z": "/opt/pr0t31n/Aether-Z/aether_z.py",
 }
 
 
@@ -406,6 +478,8 @@ VERIFY_TOOLS = [
     "zbassocflood",
     "zbpanidconflictflood",
     "zbfind",
+    # GoodFET
+    "goodfet.cc",
     # Analysis tools
     "tshark",
     "binwalk",
@@ -502,7 +576,7 @@ def main() -> None:
     dry_run = args.check
 
     cprint("\n" + "=" * 60, GREEN, bold=True)
-    cprint("  Aether-Z Installer  —  v1.0.0", GREEN, bold=True)
+    cprint("  Aether-Z Installer  —  v1.1.0", GREEN, bold=True)
     cprint("  ZigBee / IEEE 802.15.4 Penetration Test Orchestrator", GREEN, bold=True)
     cprint("=" * 60 + "\n", GREEN, bold=True)
 
@@ -572,7 +646,7 @@ def main() -> None:
     print()
     cprint("  Aether-Z installation complete.", GREEN, bold=True)
     cprint("  Run:  aether-z --help  to get started.", CYAN)
-    cprint("  Docs: /Users/pr0t31n/Aether-Z/README.md\n", CYAN)
+    cprint("  Docs: /opt/pr0t31n/Aether-Z/README.md\n", CYAN)
 
 
 if __name__ == "__main__":
