@@ -40,6 +40,7 @@ def phase_header(title: str) -> None:
 def info(msg: str)    -> None: cprint(f"  [*] {msg}", BLUE)
 def success(msg: str) -> None: cprint(f"  [+] {msg}", GREEN)
 def warn(msg: str)    -> None: cprint(f"  [!] {msg}", YELLOW)
+def note(msg: str)    -> None: cprint(f"  [i] {msg}", YELLOW)
 def error(msg: str)   -> None: cprint(f"  [-] {msg}", RED)
 def step(msg: str)    -> None: cprint(f"  --> {msg}", CYAN)
 
@@ -211,7 +212,7 @@ def phase_dnf(dry_run: bool) -> None:
     run(["dnf", "upgrade", "-y"], dry_run=dry_run)
     info(f"Installing: {' '.join(DNF_PACKAGES)}")
     run(["dnf", "install", "-y"] + DNF_PACKAGES, check=True, dry_run=dry_run)
-    warn("binwalk may need manual install on RHEL: pip3 install binwalk")
+    note("binwalk may need manual install on RHEL: pip3 install binwalk")
     success("DNF phase complete.")
 
 
@@ -238,7 +239,7 @@ def phase_brew(dry_run: bool) -> None:
     if is_root():
         sudo_user = os.environ.get("SUDO_USER", "")
         if not sudo_user:
-            warn("Running as root but SUDO_USER is not set — skipping brew install "
+            note("Running as root but SUDO_USER is not set — skipping brew install "
                  "to avoid corrupting Homebrew. Re-run as your normal user.")
             return
         base_cmd = ["sudo", "-u", sudo_user, brew_bin]
@@ -398,7 +399,7 @@ def _install_z3sec(dry_run: bool) -> None:
             info("Z3sec: running install_dependencies.sh...")
             run(["bash", str(deps_sh)], cwd="/opt/z3sec", dry_run=dry_run)
         else:
-            warn("Z3sec: no setup.py or install_dependencies.sh found — skipping.")
+            note("Z3sec: no setup.py or install_dependencies.sh found — skipping.")
 
 
 def _install_goodfet(dry_run: bool) -> None:
@@ -409,7 +410,7 @@ def _install_goodfet(dry_run: bool) -> None:
     """
     client_dir = Path("/opt/goodfet/client")
     if not client_dir.is_dir():
-        warn("GoodFET: client/ directory not found — skipping symlinks.")
+        note("GoodFET: client/ directory not found — skipping symlinks.")
         return
     pythonpath_file = Path("/opt/goodfet/client/lib")
     info("GoodFET: symlinking client scripts to /usr/local/bin/...")
@@ -437,12 +438,12 @@ def _install_goodfet(dry_run: bool) -> None:
 def phase_git(os_id: str, dry_run: bool) -> None:
     phase_header("PHASE 4 — Git Repositories")
     if os_id == "macos":
-        warn("Skipping KillerBee / Z3sec clones on macOS.")
+        note("Skipping KillerBee / Z3sec clones on macOS.")
         warn("These tools require Linux with a USB ZigBee dongle (CC2531 etc.).")
         warn("You may clone manually: git clone https://github.com/riverloopsec/killerbee")
         return
     if os_id == "windows":
-        warn("Skipping git tool clones on Windows — not supported.")
+        note("Skipping git tool clones on Windows — not supported.")
         return
     for repo in GIT_REPOS:
         clone_or_update(repo, dry_run)
@@ -560,7 +561,7 @@ def print_summary(os_id: str) -> None:
     if all_ok:
         success("All tools and repositories verified successfully.")
     else:
-        warn("Some tools were not found. Check output above and install manually if needed.")
+        note("Some tools were not found. Check output above and install manually if needed.")
 
     # Syntax check
     run_check()
@@ -636,7 +637,7 @@ def main() -> None:
         elif os_id == "macos":
             phase_brew(dry_run)
         else:
-            warn(f"Unknown OS '{os_id}' — skipping system package phase.")
+            note(f"Unknown OS '{os_id}' — skipping system package phase.")
     else:
         info("Skipping system package phase (--skip-apt).")
 
@@ -663,7 +664,7 @@ def main() -> None:
         if is_root():
             phase_symlinks(dry_run)
         else:
-            warn("Not running as root — skipping symlink creation.")
+            note("Not running as root — skipping symlink creation.")
     elif dry_run:
         phase_symlinks(dry_run)
 
