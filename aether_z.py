@@ -74,6 +74,20 @@ except ImportError:
     _pp = None
 _PAUSE = None
 
+
+def _check_pause():
+    if _PAUSE is not None and _PAUSE.check_and_pause():
+        sys.exit(_pp.EXIT_PAUSED)
+
+
+def _pause_sleep(seconds):
+    _deadline = time.monotonic() + seconds
+    while time.monotonic() < _deadline:
+        if _PAUSE is not None and _PAUSE.is_pause_requested:
+            break
+        time.sleep(min(2, max(0, _deadline - time.monotonic())))
+
+
 _SP_FINDING = "__SPECTRE_FINDING__"
 _SP_PROMPT  = "__SPECTRE_PROMPT__"
 
@@ -315,27 +329,37 @@ def _resolve_tool(cfg: dict, key: str) -> Optional[str]:
 
 def _run(cmd: list, timeout: int = 60, cwd: Optional[str] = None,
          output_file: Optional[str] = None) -> tuple[str, int]:
-    """Run a command with timeout; return (stdout+stderr, returncode).
-    2026-06-12 cross-cutting #156: when pr0t31n_tool_runner is available
-    every invocation auto-emits a `.log` sibling per §14."""
+    """Run a command with timeout; return (stdout+stderr, returncode)."""
+    if _PAUSE and _PAUSE.is_pause_requested:
+        return "(paused)", -1
     try:
         if _ur is not None:
             r = _ur.run_tool(
                 cmd, timeout=timeout, output_file=output_file,
                 cwd=cwd, tool_name=(cmd[0] if cmd else ""),
             )
-        else:
-            r = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                stdin=subprocess.DEVNULL,
-                cwd=cwd,
-            )
-        return (r.stdout or "") + (r.stderr or ""), r.returncode
-    except subprocess.TimeoutExpired:
-        return "(timeout)", -1
+            return (r.stdout or "") + (r.stderr or ""), r.returncode
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            cwd=cwd,
+        )
+        _pause_key = None
+        if _PAUSE:
+            _pause_key = _PAUSE.register(proc, " ".join(str(c) for c in cmd))
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            stdout, stderr = proc.communicate()
+            return "(timeout)", -1
+        finally:
+            if _pause_key is not None:
+                _PAUSE.unregister(_pause_key)
+        return (stdout or "") + (stderr or ""), proc.returncode
     except FileNotFoundError:
         return f"(executable not found: {cmd[0]})", 127
     except Exception as exc:
@@ -344,7 +368,13 @@ def _run(cmd: list, timeout: int = 60, cwd: Optional[str] = None,
 
 def _popen(cmd: list, **kwargs) -> subprocess.Popen:
     kwargs.setdefault("stdin", subprocess.DEVNULL)
-    return subprocess.Popen(cmd, **kwargs)
+    proc = subprocess.Popen(cmd, **kwargs)
+    if _PAUSE is not None:
+        try:
+            _PAUSE.register(proc, " ".join(str(c) for c in cmd))
+        except Exception:
+            pass
+    return proc
 
 
 def _kill_proc(proc: subprocess.Popen, wait_secs: int = 5) -> None:
@@ -359,6 +389,11 @@ def _kill_proc(proc: subprocess.Popen, wait_secs: int = 5) -> None:
             pass
     except Exception:
         pass
+    if _PAUSE is not None:
+        try:
+            _PAUSE.unregister(proc.pid)
+        except Exception:
+            pass
 
 
 # ── Findings persistence ──────────────────────────────────────────────────────
@@ -408,6 +443,7 @@ def phase_survey(cfg: dict, project_dir: Path) -> None:
     # ── Primary: zbstumbler ────────────────────────────────────────────────
     if zbstumbler_bin:
         for ch in channels:
+            _check_pause()
             out_file = survey_dir / f"zbstumbler_ch{ch}.txt"
             _log(f"[0] zbstumbler: scanning channel {ch} for {timeout}s...")
             _status(phase_id, "running", f"zbstumbler channel {ch}")
@@ -557,6 +593,7 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
     if zbdsniff_bin:
         scan_channels = [channel] if channel else channels
         for ch in scan_channels:
+            _check_pause()
             out_file = key_dir / f"zbdsniff_ch{ch}.txt"
             _log(f"[1] zbdsniff: listening on channel {ch} for {timeout}s...")
             _status(phase_id, "running", f"zbdsniff channel {ch}")
@@ -628,6 +665,7 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
     if zbdump_bin:
         scan_channels = [channel] if channel else channels[:2]  # limit capture channels
         for ch in scan_channels:
+            _check_pause()
             cap_file = key_dir / f"zbdump_ch{ch}.pcap"
             _log(f"[1] zbdump: raw capture on channel {ch} for {min(timeout // 2, 90)}s...")
             _status(phase_id, "running", f"zbdump raw capture channel {ch}")
@@ -637,7 +675,7 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
             proc = None
             try:
                 proc = _popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                time.sleep(cap_timeout)
+                _pause_sleep(cap_timeout)
             except Exception as exc:
                 _err(f"zbdump error: {exc}")
             finally:
@@ -927,6 +965,7 @@ def phase_enumeration(cfg: dict, project_dir: Path) -> None:
     # ── zbid: ZigBee device identification ───────────────────────────────
     if zbid_bin:
         for ch in scan_channels:
+            _check_pause()
             out_file = enum_dir / f"zbid_ch{ch}.txt"
             _log(f"[2] zbid: device identification on channel {ch}...")
             _status(phase_id, "running", f"zbid channel {ch}")
@@ -967,6 +1006,7 @@ def phase_enumeration(cfg: dict, project_dir: Path) -> None:
     # ── zbscapy: cluster-level enumeration ────────────────────────────────
     if zbscapy_bin:
         for ch in scan_channels[:2]:  # limit to first 2 channels
+            _check_pause()
             out_file = enum_dir / f"zbscapy_ch{ch}.txt"
             _log(f"[2] zbscapy: cluster enumeration on channel {ch}...")
             _status(phase_id, "running", f"zbscapy channel {ch}")
@@ -1498,7 +1538,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     _log(f"Output   : {output_dir}")
     _log("=" * 60)
 
-    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+    _check_pause()
 
     # Phase 0 — Survey
     if phases_cfg.get("survey", True):
@@ -1506,7 +1546,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     else:
         _log("[~] Phase survey disabled in config — skipping")
 
-    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+    _check_pause()
 
     # Phase 1 — Key Recovery
     if phases_cfg.get("key_recovery", True):
@@ -1514,7 +1554,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     else:
         _log("[~] Phase key_recovery disabled in config — skipping")
 
-    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+    _check_pause()
 
     # Phase 2 — Enumeration
     if phases_cfg.get("enumeration", True):
@@ -1522,7 +1562,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     else:
         _log("[~] Phase enumeration disabled in config — skipping")
 
-    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+    _check_pause()
 
     # Phase 3 — Attacks
     if phases_cfg.get("attacks", False):
@@ -1530,7 +1570,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     else:
         _log("[~] Phase attacks disabled in config — skipping (set attacks: true to enable)")
 
-    if _PAUSE and _PAUSE.check_and_pause(): sys.exit(_pp.EXIT_PAUSED)
+    _check_pause()
 
     # Phase 4 — Firmware
     if phases_cfg.get("firmware", False):
@@ -1713,7 +1753,7 @@ def main() -> None:
     global _PAUSE
     if _pp is not None:
         _PAUSE = _pp.PauseManager(str(project_dir), "aether-z")
-        _PAUSE.start_watcher(grace_period=60)
+        _PAUSE.start_watcher(checkpoint_callback=lambda: _save_findings(project_dir), grace_period=30)
         _resumed = os.environ.get("CRUCIBLE_RESUME") == "1"
         _PAUSE.log_run_type(resumed=_resumed)
         if _resumed:
