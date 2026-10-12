@@ -345,9 +345,13 @@ def clone_or_update(repo: dict, dry_run: bool) -> bool:
 
     if dest_path.exists():
         info(f"{label}: directory exists — pulling latest changes...")
+        if not dry_run:
+            subprocess.run(["git", "-C", dest, "checkout", "--", "."],
+                           check=False, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
         rc = run(["git", "-C", dest, "pull", "--ff-only"], dry_run=dry_run)
         if rc != 0:
-            warn(f"{label}: git pull failed — continuing with existing clone.")
+            note(f"{label}: git pull failed — continuing with existing clone.")
     else:
         info(f"{label}: cloning {url} → {dest}")
         rc = run(["git", "clone", "--depth=1", url, dest], check=True, dry_run=dry_run)
