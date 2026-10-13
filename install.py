@@ -136,7 +136,7 @@ APT_PACKAGES = [
     "python3-dev",
     "git",
     "libusb-1.0-0-dev",
-    "libgcrypt-dev",
+    "libgcrypt20-dev",
     "build-essential",
     "pkg-config",
     "wireshark",
@@ -372,7 +372,9 @@ def _install_killerbee(dry_run: bool) -> None:
     system-wide.  Pre-installing the runtime deps and disabling build
     isolation lets the import succeed.
     """
-    pre_deps = {"pyusb>=1.0": "pyusb", "scapy": "scapy"}
+    pre_deps = {"pyusb>=1.0": "pyusb", "scapy": "scapy",
+                "pycryptodome": "pycryptodome", "pyserial": "pyserial",
+                "rangeparser": "rangeparser"}
     missing_deps = []
     for spec, _ in pre_deps.items():
         if _pip_installed(spec):
@@ -385,9 +387,9 @@ def _install_killerbee(dry_run: bool) -> None:
             dry_run=dry_run)
     else:
         info("KillerBee: all pre-deps already present")
-    info("KillerBee: installing in editable mode (--no-build-isolation)...")
+    info("KillerBee: installing in editable mode (--no-build-isolation --no-deps)...")
     run(["pip3", "install", "--break-system-packages", "--no-build-isolation",
-         "-e", "/opt/killerbee"], dry_run=dry_run)
+         "--no-deps", "-e", "/opt/killerbee"], dry_run=dry_run)
 
 
 def _install_z3sec(dry_run: bool) -> None:
