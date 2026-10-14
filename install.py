@@ -195,7 +195,12 @@ def phase_apt(dry_run: bool) -> None:
     info("Upgrading installed packages...")
     run(["apt-get", "upgrade", "-y"], check=True, dry_run=dry_run)
     info(f"Installing: {' '.join(APT_PACKAGES)}")
-    run(["apt-get", "install", "-y"] + APT_PACKAGES, check=True, dry_run=dry_run)
+    _needed = [p for p in APT_PACKAGES if not _dpkg_installed(p)]
+    _skip = len(APT_PACKAGES) - len(_needed)
+    if _skip:
+        info(f"  {_skip} APT package(s) already installed")
+    if _needed:
+        run(["apt-get", "install", "-y"] + _needed, check=True, dry_run=dry_run)
     # wireshark non-interactive: allow non-root capture
     if not dry_run:
         run(["bash", "-c",
@@ -211,7 +216,12 @@ def phase_dnf(dry_run: bool) -> None:
     run(["dnf", "install", "-y", "epel-release"], dry_run=dry_run)
     run(["dnf", "upgrade", "-y"], dry_run=dry_run)
     info(f"Installing: {' '.join(DNF_PACKAGES)}")
-    run(["dnf", "install", "-y"] + DNF_PACKAGES, check=True, dry_run=dry_run)
+    _needed = [p for p in DNF_PACKAGES if not _rpm_installed(p)]
+    _skip = len(DNF_PACKAGES) - len(_needed)
+    if _skip:
+        info(f"  {_skip} DNF package(s) already installed")
+    if _needed:
+        run(["dnf", "install", "-y"] + _needed, check=True, dry_run=dry_run)
     note("binwalk may need manual install on RHEL: pip3 install binwalk")
     success("DNF phase complete.")
 
@@ -222,7 +232,12 @@ def phase_zypper(dry_run: bool) -> None:
     run(["zypper", "refresh"], dry_run=dry_run)
     run(["zypper", "update", "-y"], dry_run=dry_run)
     info(f"Installing: {' '.join(ZYPPER_PACKAGES)}")
-    run(["zypper", "install", "-y"] + ZYPPER_PACKAGES, check=True, dry_run=dry_run)
+    _needed = [p for p in ZYPPER_PACKAGES if not _rpm_installed(p)]
+    _skip = len(ZYPPER_PACKAGES) - len(_needed)
+    if _skip:
+        info(f"  {_skip} zypper package(s) already installed")
+    if _needed:
+        run(["zypper", "install", "-y"] + _needed, check=True, dry_run=dry_run)
     success("Zypper phase complete.")
 
 
@@ -318,6 +333,26 @@ _GOODFET_SCRIPTS = [
     "goodfet.nrf", "goodfet.pic", "goodfet.rf", "goodfet.spi",
     "goodfet.spi25c", "goodfet.spiflash",
 ]
+
+
+
+def _dpkg_installed(pkg):
+    try:
+        r = subprocess.run(["dpkg", "-s", pkg],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return r.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def _rpm_installed(pkg):
+    try:
+        return subprocess.run(
+            ["rpm", "-q", pkg],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode == 0
+    except FileNotFoundError:
+        return False
 
 
 def _pip_installed(pkg_spec: str) -> bool:

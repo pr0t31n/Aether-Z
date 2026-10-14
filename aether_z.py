@@ -1538,6 +1538,17 @@ def run(cfg: dict, project_dir: Path) -> None:
     _log(f"Output   : {output_dir}")
     _log("=" * 60)
 
+    try:
+        import pr0t31n_dep_snapshot as _ds
+        _ds.write_snapshot(
+            output_dir, "Aether-Z", VERSION,
+            binaries=["zbstumbler", "zbdump", "zbdsniff", "zbid", "zbscapy",
+                       "zbreplay", "tshark", "binwalk", "openocd"],
+            pip_packages=[],
+        )
+    except Exception:
+        pass
+
     _check_pause()
 
     # Phase 0 — Survey
