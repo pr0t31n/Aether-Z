@@ -402,11 +402,22 @@ def clone_or_update(repo: dict, dry_run: bool) -> bool:
 def _install_killerbee(dry_run: bool) -> None:
     """Pre-install pyusb+scapy then editable-install KillerBee.
 
-    KillerBee's setup.py does `import usb` at build time.  Under pip's
-    default build isolation that import fails even when pyusb is installed
-    system-wide.  Pre-installing the runtime deps and disabling build
-    isolation lets the import succeed.
+    KillerBee's zigbee_crypt C extension needs libgcrypt headers at
+    build time.  Its setup.py also does ``import usb`` during the build
+    phase, which fails under pip's default build-isolation even when
+    pyusb is installed system-wide.  We pre-install the runtime deps,
+    verify the C header exists, and disable build isolation.
     """
+    gcrypt_header = Path("/usr/include/gcrypt.h")
+    if not gcrypt_header.exists() and not dry_run:
+        warn("gcrypt.h not found — installing libgcrypt20-dev...")
+        rc = run(["apt-get", "install", "-y", "libgcrypt20-dev"])
+        if rc != 0 or not gcrypt_header.exists():
+            error("Could not install libgcrypt20-dev — KillerBee C "
+                  "extension will fail to compile. Install it manually: "
+                  "apt-get install -y libgcrypt20-dev")
+            return
+
     pre_deps = {"pyusb>=1.0": "pyusb", "scapy": "scapy",
                 "pycryptodome": "pycryptodome", "pyserial": "pyserial",
                 "rangeparser": "rangeparser"}
@@ -423,8 +434,11 @@ def _install_killerbee(dry_run: bool) -> None:
     else:
         info("KillerBee: all pre-deps already present")
     info("KillerBee: installing in editable mode (--no-build-isolation --no-deps)...")
-    run(["pip3", "install", "--break-system-packages", "--no-build-isolation",
-         "--no-deps", "-e", "/opt/killerbee"], dry_run=dry_run)
+    rc = run(["pip3", "install", "--break-system-packages", "--no-build-isolation",
+              "--no-deps", "-e", "/opt/killerbee"], dry_run=dry_run)
+    if rc != 0 and not dry_run:
+        error("KillerBee pip install failed (exit %d). The zb* tools "
+              "will not be available. Check build output above." % rc)
 
 
 def _install_z3sec(dry_run: bool) -> None:
