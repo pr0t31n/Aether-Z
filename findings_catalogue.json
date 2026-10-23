@@ -4,7 +4,7 @@
   "findings": [
     {
       "id": "AETHZ-001",
-      "title": "ZigBee Network Key Recovered via Join Intercept",
+      "title": "ZigBee: ZigBee Network Key Recovered via Join Intercept",
       "severity": "CRITICAL",
       "cvss_score": 9.1,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -17,7 +17,7 @@
     },
     {
       "id": "AETHZ-002",
-      "title": "Default Trust Center Link Key (TCLK) in Use",
+      "title": "ZigBee: Default Trust Center Link Key (TCLK) in Use",
       "severity": "CRITICAL",
       "cvss_score": 9.0,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -28,7 +28,7 @@
     },
     {
       "id": "AETHZ-003",
-      "title": "ZigBee Network Key in Plaintext Configuration",
+      "title": "ZigBee: ZigBee Network Key in Plaintext Configuration",
       "severity": "HIGH",
       "cvss_score": 7.5,
       "cvss_vector": "AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N",
@@ -39,7 +39,7 @@
     },
     {
       "id": "AETHZ-004",
-      "title": "ZigBee Replay Attack Successful",
+      "title": "ZigBee: ZigBee Replay Attack Successful",
       "severity": "HIGH",
       "cvss_score": 7.4,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:N/I:H/A:N",
@@ -61,7 +61,7 @@
     },
     {
       "id": "AETHZ-006",
-      "title": "ZLL Touchlink Device Stolen",
+      "title": "ZigBee: ZLL Touchlink Device Stolen",
       "severity": "CRITICAL",
       "cvss_score": 9.0,
       "cvss_vector": "AV:P/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -72,7 +72,7 @@
     },
     {
       "id": "AETHZ-007",
-      "title": "ZLL Touchlink Factory Reset Successful",
+      "title": "ZigBee: ZLL Touchlink Factory Reset Successful",
       "severity": "HIGH",
       "cvss_score": 7.5,
       "cvss_vector": "AV:P/AC:L/PR:N/UI:N/S:C/C:N/I:H/A:H",
@@ -83,7 +83,7 @@
     },
     {
       "id": "AETHZ-008",
-      "title": "ZigBee Network Denial-of-Service Successful",
+      "title": "ZigBee: ZigBee Network Denial-of-Service Successful",
       "severity": "MEDIUM",
       "cvss_score": 6.5,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:N/I:N/A:H",
@@ -94,7 +94,7 @@
     },
     {
       "id": "AETHZ-009",
-      "title": "ZigBee Network Key Extracted from Device Firmware",
+      "title": "Wireless Vulnerability: ZigBee Network Key Extracted from Device Firmware",
       "severity": "CRITICAL",
       "cvss_score": 8.8,
       "cvss_vector": "AV:P/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -105,7 +105,7 @@
     },
     {
       "id": "AETHZ-010",
-      "title": "ZigBee Join Window Permanently Open",
+      "title": "ZigBee: ZigBee Join Window Permanently Open",
       "severity": "HIGH",
       "cvss_score": 7.1,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -116,7 +116,7 @@
     },
     {
       "id": "AETHZ-011",
-      "title": "Unauthenticated ZDO Enumeration",
+      "title": "Enumeration: Unauthenticated ZDO Enumeration",
       "severity": "MEDIUM",
       "cvss_score": 5.3,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
@@ -127,7 +127,7 @@
     },
     {
       "id": "AETHZ-012",
-      "title": "Hardcoded ZigBee Credentials in Device Firmware",
+      "title": "Wireless Vulnerability: Hardcoded ZigBee Credentials in Device Firmware",
       "severity": "CRITICAL",
       "cvss_score": 9.3,
       "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
@@ -138,7 +138,7 @@
     },
     {
       "id": "AETHZ-013",
-      "title": "OTA Firmware Update Not Authenticated",
+      "title": "Wireless Vulnerability: OTA Firmware Update Not Authenticated",
       "severity": "HIGH",
       "cvss_score": 8.2,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
@@ -149,7 +149,7 @@
     },
     {
       "id": "AETHZ-014",
-      "title": "ZigBee Protocol Fuzzing Induced Device Crash",
+      "title": "ZigBee: ZigBee Protocol Fuzzing Induced Device Crash",
       "severity": "HIGH",
       "cvss_score": 7.5,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
