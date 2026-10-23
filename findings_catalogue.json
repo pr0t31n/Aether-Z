@@ -13,7 +13,8 @@
         "CVE-2021-27289"
       ],
       "description": "Network encryption key intercepted during device join event, enabling full traffic decryption and authenticated injection. The ZigBee trust center transmitted the network key using the default or known Trust Center Link Key (TCLK), allowing passive interception of the key transport frame. An attacker with this key can decrypt all past captured traffic and inject authenticated ZCL commands.",
-      "remediation": "Rotate network key immediately. Enable network key rotation policy. Ensure TCLK is unique per installation. Disable join window except during planned commissioning. Deploy ZigBee 3.0 with improved key transport protections."
+      "remediation": "Rotate network key immediately. Enable network key rotation policy. Ensure TCLK is unique per installation. Disable join window except during planned commissioning. Deploy ZigBee 3.0 with improved key transport protections.",
+      "risk": "CRITICAL"
     },
     {
       "id": "AETHZ-002",
@@ -24,7 +25,8 @@
       "category": "Key Management",
       "cve_references": [],
       "description": "ZigBeeAlliance09 well-known TCLK is in use. Any attacker within RF range can decrypt the key transport frame sent during device join, recover the active network key, and then decrypt all network traffic or inject authenticated commands. This well-known key is published in the ZigBee specification and is widely available.",
-      "remediation": "Configure a unique, device-specific TCLK for all join operations. Disable open join window. Migrate to ZigBee 3.0 which mandates unique install codes per device. Audit all devices that joined using the default TCLK and rotate the network key."
+      "remediation": "Configure a unique, device-specific TCLK for all join operations. Disable open join window. Migrate to ZigBee 3.0 which mandates unique install codes per device. Audit all devices that joined using the default TCLK and rotate the network key.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-003",
@@ -35,7 +37,8 @@
       "category": "Configuration",
       "cve_references": [],
       "description": "Network key found in plaintext in Zigbee2MQTT or gateway configuration file. Any user or process with read access to the gateway host filesystem can extract the key and use it to decrypt all ZigBee traffic or inject authenticated commands. Plaintext key storage in configuration files is a common misconfiguration in home-automation deployments.",
-      "remediation": "Encrypt stored keys using OS-level secret stores (e.g., Linux kernel keyring, macOS Keychain). Apply strict filesystem permissions (mode 0600, root-owned) to gateway configuration files. Consider HSM-backed key storage for production environments."
+      "remediation": "Encrypt stored keys using OS-level secret stores (e.g., Linux kernel keyring, macOS Keychain). Apply strict filesystem permissions (mode 0600, root-owned) to gateway configuration files. Consider HSM-backed key storage for production environments.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-004",
@@ -46,7 +49,8 @@
       "category": "Authentication",
       "cve_references": [],
       "description": "Replayed ZCL command frames accepted by target device. Frame counter validation is not enforced or the acceptance window is excessively wide. An attacker can capture authenticated ZCL commands (e.g., door unlock, alarm disarm) and replay them at will, bypassing the encryption layer because the MIC is valid for the replayed frame.",
-      "remediation": "Enforce strict ZigBee frame counter validation per the ZigBee specification. Devices must reject frames with counters that fall outside the accepted replay protection window. Apply vendor firmware patches that implement per-device frame counter tracking."
+      "remediation": "Enforce strict ZigBee frame counter validation per the ZigBee specification. Devices must reject frames with counters that fall outside the accepted replay protection window. Apply vendor firmware patches that implement per-device frame counter tracking.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-005",
@@ -57,7 +61,8 @@
       "category": "Command Injection",
       "cve_references": [],
       "description": "Authenticated ZCL commands injected using recovered network key. Security-sensitive commands including door lock, alarm disarm, and thermostat override were accepted by target devices. The attacker constructed valid encrypted and authenticated ZCL frames using the recovered network key, bypassing all network-layer security controls.",
-      "remediation": "Rotate network key immediately. Implement application-layer authentication for security-critical clusters (Door Lock, IAS Zone, Thermostat). Enforce allow-listed device EUI64s for security-critical command sources at the coordinator level."
+      "remediation": "Rotate network key immediately. Implement application-layer authentication for security-critical clusters (Door Lock, IAS Zone, Thermostat). Enforce allow-listed device EUI64s for security-critical command sources at the coordinator level.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-006",
@@ -68,7 +73,8 @@
       "category": "Touchlink",
       "cve_references": [],
       "description": "Target ZigBee Light Link device stolen and joined to an attacker-controlled network using the leaked ZLL Master Key. The ZLL Master Key was published in the ZigBee Light Link specification and allows any party to perform touchlink commissioning against any ZLL device within close RF proximity, effectively stealing devices from their production network without requiring the original network key.",
-      "remediation": "Disable touchlink commissioning where not required by the deployment. Deploy ZigBee 3.0 with enhanced touchlink security (install-code-based commissioning). Replace ZLL-only devices with ZigBee 3.0 devices that do not support legacy touchlink."
+      "remediation": "Disable touchlink commissioning where not required by the deployment. Deploy ZigBee 3.0 with enhanced touchlink security (install-code-based commissioning). Replace ZLL-only devices with ZigBee 3.0 devices that do not support legacy touchlink.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-007",
@@ -79,7 +85,8 @@
       "category": "Touchlink",
       "cve_references": [],
       "description": "ZLL touchlink factory reset command was accepted by the target device, removing it from its production network. This constitutes an effective denial-of-service: the device can no longer communicate with its coordinator and requires manual re-commissioning. The attack requires only close physical proximity (approximately 10–30 cm) and knowledge of the ZLL protocol.",
-      "remediation": "Disable touchlink commissioning on production devices via coordinator policy. Enforce proximity validation at the application layer. Apply vendor firmware updates that restrict touchlink reset commands to devices already on the same network."
+      "remediation": "Disable touchlink commissioning on production devices via coordinator policy. Enforce proximity validation at the application layer. Apply vendor firmware updates that restrict touchlink reset commands to devices already on the same network.",
+      "risk": "LOW"
     },
     {
       "id": "AETHZ-008",
@@ -90,7 +97,8 @@
       "category": "Denial of Service",
       "cve_references": [],
       "description": "ZigBee network disrupted via PAN-ID conflict flood or association flood. Devices were disconnected from the network or unable to communicate for the duration of the attack. The PAN-ID conflict flood causes the coordinator to change PAN ID, forcing all devices to re-associate. The association flood exhausts the coordinator's association table, preventing legitimate devices from joining.",
-      "remediation": "Implement RF environment monitoring with anomaly alerting. Deploy ZigBee network with channel agility enabled to respond to sustained interference. Configure coordinator with rate-limiting on association requests. Consider Distributed Trust Center mode to reduce the coordinator as a single point of failure."
+      "remediation": "Implement RF environment monitoring with anomaly alerting. Deploy ZigBee network with channel agility enabled to respond to sustained interference. Configure coordinator with rate-limiting on association requests. Consider Distributed Trust Center mode to reduce the coordinator as a single point of failure.",
+      "risk": "MEDIUM"
     },
     {
       "id": "AETHZ-009",
@@ -101,7 +109,8 @@
       "category": "Hardware Security",
       "cve_references": [],
       "description": "Network or link key material extracted from ZigBee device firmware via JTAG debug interface or direct flash memory dump. The key was stored unprotected in flash memory and was recoverable using standard hardware security research tools. A physical attacker can extract this key and use it to compromise all network communications.",
-      "remediation": "Enable debug port lockdown (JTAG fuse blow) on all production devices. Use hardware-enforced secure boot to prevent unauthorised firmware extraction. Store cryptographic keys in dedicated hardware security elements or in encrypted key stores protected by device-unique keys."
+      "remediation": "Enable debug port lockdown (JTAG fuse blow) on all production devices. Use hardware-enforced secure boot to prevent unauthorised firmware extraction. Store cryptographic keys in dedicated hardware security elements or in encrypted key stores protected by device-unique keys.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-010",
@@ -112,7 +121,8 @@
       "category": "Configuration",
       "cve_references": [],
       "description": "The ZigBee coordinator's join permission window is permanently open, allowing any device to join the network at any time. Combined with use of the default TCLK, this allows an attacker to join the network, receive the network key, and then silently monitor or inject traffic. A permanently-open join window is a common misconfiguration in Zigbee2MQTT and other open-source coordinator software.",
-      "remediation": "Close join window after commissioning is complete. Only open briefly (maximum 60 seconds) during planned addition of new devices. Implement automated join window closure via coordinator policy. Audit all devices that joined the network and verify they are authorised."
+      "remediation": "Close join window after commissioning is complete. Only open briefly (maximum 60 seconds) during planned addition of new devices. Implement automated join window closure via coordinator policy. Audit all devices that joined the network and verify they are authorised.",
+      "risk": "LOW"
     },
     {
       "id": "AETHZ-011",
@@ -123,7 +133,8 @@
       "category": "Information Disclosure",
       "cve_references": [],
       "description": "ZigBee Device Object (ZDO) enumeration reveals all endpoints, clusters, and device capabilities without requiring the ZigBee network key. ZDO requests operate at the network layer and some coordinators respond to unauthenticated ZDO queries, exposing the network topology, device types, supported clusters, and manufacturer information. This information aids targeted attack planning.",
-      "remediation": "Consider ZigBee network-layer encryption for all frames including ZDO. Monitor for unexpected ZDO requests from unknown source addresses. Restrict ZDO enumeration to coordinator-only responses where possible via network policy."
+      "remediation": "Consider ZigBee network-layer encryption for all frames including ZDO. Monitor for unexpected ZDO requests from unknown source addresses. Restrict ZDO enumeration to coordinator-only responses where possible via network policy.",
+      "risk": "LOW"
     },
     {
       "id": "AETHZ-012",
@@ -134,7 +145,8 @@
       "category": "Credential Management",
       "cve_references": [],
       "description": "Hardcoded network key or link key found in device firmware binary via static analysis. The key is identical across all devices of this model. Any attacker who obtains a firmware image (via OTA update interception, vendor leak, or hardware extraction) can extract the key and use it to compromise all deployments of the same device model worldwide.",
-      "remediation": "Remove hardcoded keys from firmware. Use unique-per-device key provisioning via secure manufacturing processes (e.g., inject unique keys during factory programming under controlled conditions). Store keys in hardware-protected storage on the device."
+      "remediation": "Remove hardcoded keys from firmware. Use unique-per-device key provisioning via secure manufacturing processes (e.g., inject unique keys during factory programming under controlled conditions). Store keys in hardware-protected storage on the device.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-013",
@@ -145,7 +157,8 @@
       "category": "Update Security",
       "cve_references": [],
       "description": "Over-the-air firmware updates are accepted by the target device without cryptographic signature verification. An attacker with access to the ZigBee network (via recovered network key) can serve a malicious firmware image via the ZigBee OTA Upgrade cluster, replacing the device firmware with attacker-controlled code.",
-      "remediation": "Implement signed OTA firmware updates with public-key verification per the ZigBee OTA upgrade cluster specification. The device must verify the firmware image signature against a vendor public key embedded in ROM before applying any update. Reject unsigned or incorrectly signed images."
+      "remediation": "Implement signed OTA firmware updates with public-key verification per the ZigBee OTA upgrade cluster specification. The device must verify the firmware image signature against a vendor public key embedded in ROM before applying any update. Reject unsigned or incorrectly signed images.",
+      "risk": "HIGH"
     },
     {
       "id": "AETHZ-014",
@@ -156,7 +169,8 @@
       "category": "Robustness",
       "cve_references": [],
       "description": "Malformed ZigBee protocol frames caused the target device to crash or become unresponsive. Fuzzing of IEEE 802.15.4 MAC headers, ZigBee NWK headers, and ZCL payload fields identified inputs that trigger NULL dereferences or assertion failures in the device firmware. Affected devices required a power cycle to recover.",
-      "remediation": "Apply vendor firmware patches that add input validation for all received frame fields. Test device implementations against IEEE 802.15.4 and ZigBee Alliance conformance test suites. Implement watchdog timers with automatic recovery to mitigate denial-of-service impact."
+      "remediation": "Apply vendor firmware patches that add input validation for all received frame fields. Test device implementations against IEEE 802.15.4 and ZigBee Alliance conformance test suites. Implement watchdog timers with automatic recovery to mitigate denial-of-service impact.",
+      "risk": "MEDIUM"
     },
     {
       "id": "AETHZ-015",
@@ -167,7 +181,8 @@
       "category": "Key Management",
       "cve_references": [],
       "description": "Target network uses ZigBee Light Link (ZLL) with the publicly-leaked ZLL Master Key, exposing all touchlink commissioning operations. The ZLL Master Key was disclosed in the publicly-available ZigBee Light Link specification and allows any attacker to derive the per-network encryption key used during touchlink, enabling device theft and factory reset attacks against all ZLL devices on the network.",
-      "remediation": "Migrate to ZigBee 3.0 without ZLL legacy support. Replace all ZLL-only devices with ZigBee 3.0 devices. Where immediate migration is not possible, disable touchlink commissioning at the coordinator level and physically secure all ZLL devices against close-proximity attacks."
+      "remediation": "Migrate to ZigBee 3.0 without ZLL legacy support. Replace all ZLL-only devices with ZigBee 3.0 devices. Where immediate migration is not possible, disable touchlink commissioning at the coordinator level and physically secure all ZLL devices against close-proximity attacks.",
+      "risk": "INFO"
     }
   ]
 }
