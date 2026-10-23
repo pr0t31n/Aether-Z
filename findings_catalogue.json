@@ -9,7 +9,9 @@
       "cvss_score": 9.1,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
       "category": "Key Recovery",
-      "cve_references": ["CVE-2021-27289"],
+      "cve_references": [
+        "CVE-2021-27289"
+      ],
       "description": "Network encryption key intercepted during device join event, enabling full traffic decryption and authenticated injection. The ZigBee trust center transmitted the network key using the default or known Trust Center Link Key (TCLK), allowing passive interception of the key transport frame. An attacker with this key can decrypt all past captured traffic and inject authenticated ZCL commands.",
       "remediation": "Rotate network key immediately. Enable network key rotation policy. Ensure TCLK is unique per installation. Disable join window except during planned commissioning. Deploy ZigBee 3.0 with improved key transport protections."
     },
@@ -48,7 +50,7 @@
     },
     {
       "id": "AETHZ-005",
-      "title": "ZCL Command Injection Successful",
+      "title": "Injection: ZCL Command Injection Successful",
       "severity": "CRITICAL",
       "cvss_score": 9.6,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
@@ -158,7 +160,7 @@
     },
     {
       "id": "AETHZ-015",
-      "title": "ZLL Master Key Deployment Detected",
+      "title": "Discovery: ZLL Master Key Deployment Detected",
       "severity": "CRITICAL",
       "cvss_score": 9.0,
       "cvss_vector": "AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
