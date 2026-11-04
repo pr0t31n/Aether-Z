@@ -60,8 +60,8 @@ Aether-Z is a multi-phase ZigBee security assessment orchestrator. It automates 
 RF discovery, network key recovery, active device enumeration, authenticated attack testing,
 and firmware security analysis against IEEE 802.15.4 / ZigBee networks and devices.
 
-Aether-Z integrates with the Spectre web platform via protocol tokens, allowing assessments
-to be launched, monitored, and reviewed from the Spectre dashboard.
+Aether-Z integrates with the Crucible web platform via protocol tokens, allowing assessments
+to be launched, monitored, and reviewed from the Crucible dashboard.
 
 ### Features
 
@@ -79,7 +79,7 @@ to be launched, monitored, and reviewed from the Spectre dashboard.
 - **Phase 4 — Firmware Analysis**: CC2531/CC253x flash extraction via goodfet.cc, generic JTAG
   dump via openocd, and static firmware analysis via binwalk for hardcoded keys and unsigned
   OTA upgrade cluster detection.
-- **Spectre Integration**: All phases emit structured protocol tokens consumed by the Spectre
+- **Crucible Integration**: All phases emit structured protocol tokens consumed by the Crucible
   web platform for real-time status, finding, and log display.
 - **Findings Catalogue**: 15 documented findings (AETHZ-001 through AETHZ-015) with CVSS scores,
   category classifications, and actionable remediations.
@@ -338,9 +338,9 @@ The `config.json` file controls all assessment parameters:
 
 ---
 
-## Spectre Integration
+## Crucible Integration
 
-When Aether-Z is launched by the Spectre platform (environment variable `SPECTRE_MANAGED=1`),
+When Aether-Z is launched by the Crucible platform (environment variable `CRUCIBLE_MANAGED=1`),
 all output uses structured protocol tokens:
 
 ```
@@ -351,9 +351,9 @@ __SPECTRE_FINDING__ {"id": "AETHZ-001", "title": "...", "severity": "CRITICAL", 
 __SPECTRE_PROMPT__ <message requiring operator confirmation>
 ```
 
-Spectre parses these tokens in real-time to display phase status, populate the findings table,
-and stream logs to the operator interface. The `SPECTRE_MANAGED` environment variable is set
-automatically when Spectre launches Aether-Z as a subprocess.
+Crucible parses these tokens in real-time to display phase status, populate the findings table,
+and stream logs to the operator interface. The `CRUCIBLE_MANAGED` environment variable is set
+automatically when Crucible launches Aether-Z as a subprocess.
 
 ---
 
