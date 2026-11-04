@@ -45,6 +45,9 @@ Security testing is a professional discipline with significant ethical and legal
 
 # Aether-Z — ZigBee / IEEE 802.15.4 Penetration Test Orchestrator
 
+> [!CAUTION]
+> **Under Development — Untested.** This tool has not been validated in production engagements. Features may be incomplete, unstable, or produce unreliable results. Do not rely on its output for deliverables without independent verification.
+
 **Version:** 1.0.0
 **Author:** pr0t31n
 **Platform:** Linux (Kali / Ubuntu recommended)
