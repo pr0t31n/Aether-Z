@@ -48,7 +48,7 @@ Security testing is a professional discipline with significant ethical and legal
 > [!CAUTION]
 > **Under Development — Untested.** This tool has not been validated in production engagements. Features may be incomplete, unstable, or produce unreliable results. Do not rely on its output for deliverables without independent verification.
 
-**Version:** 1.0.0
+**Version:** 1.6.5
 **Author:** pr0t31n
 **Platform:** Linux (Kali / Ubuntu recommended)
 
@@ -129,7 +129,7 @@ All dependencies except goodfet are installed by `install.py`.
 ### Quick install (Kali / Ubuntu)
 
 ```bash
-cd /Users/pr0t31n/Aether-Z
+cd /opt/pr0t31n/Aether-Z
 sudo python3 install.py
 ```
 
@@ -159,6 +159,34 @@ pip3 install -e /opt/killerbee
 git clone https://github.com/IoTsec/Z3sec /opt/z3sec
 pip3 install -r /opt/z3sec/requirements.txt
 ```
+
+---
+
+## CLI Reference
+
+All flags accepted by `aether_z.py`:
+
+| Flag | Short | Argument | Description |
+|------|-------|----------|-------------|
+| `--config` | `-c` | `PATH` | JSON config file (default: `config.json` next to `aether_z.py`) |
+| `--project` | `-p` | `PATH` | Project root directory for all output files |
+| `--interface` | `-i` | `DEVICE` | ZigBee interface device path (e.g. `/dev/ttyUSB0`) |
+| `--channel` | `-C` | `INT` | Lock all phases to a single 802.15.4 channel (11-26) |
+| `--channels` | | `CH [CH ...]` | Channels to scan (e.g. `--channels 11 15 20 25`) |
+| `--phase` | | `NAME` | Run a single phase only. Choices: `survey`, `key_recovery`, `enumeration`, `attacks`, `firmware` |
+| `--panid` | | `PANID` | Target PAN-ID in hex (e.g. `0x1A2B`); repeatable |
+| `--eui64` | | `EUI64` | Target device EUI-64 address; repeatable |
+| `--network-key` | | `KEY_HEX` | Known network key (32-char hex string); repeatable |
+| `--timeout` | `-t` | `INT` | Per-phase timeout in seconds |
+| `--physical-access` | | (flag) | Confirm physical access to devices; enables firmware extraction (Phase 4) |
+| `--injection-authorized` | | (flag) | Confirm injection is authorised; enables attack sub-phases (Phase 3) |
+| `--dos-authorized` | | (flag) | Confirm DoS testing is authorised; enables DoS sub-phases (Phase 3) |
+| `--scope-panid` | | `PANID` | Scope whitelist PAN-ID; only these PANs will be targeted; repeatable |
+| `--scope-eui64` | | `EUI64` | Scope whitelist EUI-64; only these devices will be targeted; repeatable |
+| `--list-phases` | | (flag) | List available phases and exit |
+
+Repeatable flags can be specified multiple times to provide multiple values
+(e.g. `--panid 0x1A2B --panid 0x3C4D`).
 
 ---
 
@@ -204,6 +232,25 @@ sudo python3 aether_z.py --phase firmware \
 sudo python3 aether_z.py \
     --scope-panid 0x1A2B \
     --scope-panid 0x3C4D \
+    --scope-eui64 00:11:22:33:44:55:66:77 \
+    --interface /dev/ttyUSB0
+```
+
+### Target specific devices and networks
+
+```bash
+sudo python3 aether_z.py \
+    --panid 0x1A2B \
+    --eui64 00:11:22:33:44:55:66:77 \
+    --interface /dev/ttyUSB0
+```
+
+### Scan specific channels with a timeout
+
+```bash
+sudo python3 aether_z.py \
+    --channels 11 15 20 25 \
+    --timeout 600 \
     --interface /dev/ttyUSB0
 ```
 
