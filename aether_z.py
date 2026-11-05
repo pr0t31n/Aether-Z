@@ -9,12 +9,12 @@ Orchestrates multi-phase ZigBee security assessments via:
   Phase 3  — Attack Testing                  (zbreplay / zbassocflood / zbpanidconflictflood)
   Phase 4  — Firmware Analysis               (binwalk / goodfet / openocd)
 
-Protocol tokens (emitted to stdout for Spectre frontend):
-  __SPECTRE_LOG__     <message>
-  __SPECTRE_ERR__     <message>
-  __SPECTRE_STATUS__  <json>
-  __SPECTRE_FINDING__ <json>
-  __SPECTRE_PROMPT__  <message>
+Protocol tokens (emitted to stdout for Crucible frontend):
+  __CRUCIBLE_LOG__     <message>
+  __CRUCIBLE_ERR__     <message>
+  __CRUCIBLE_STATUS__  <json>
+  __CRUCIBLE_FINDING__ <json>
+  __CRUCIBLE_PROMPT__  <message>
 
 Usage:
     sudo python3 aether_z.py --config config.json --project /path/to/project
@@ -422,7 +422,7 @@ def _kill_proc(proc: subprocess.Popen, wait_secs: int = 5) -> None:
 # ── Findings persistence ──────────────────────────────────────────────────────
 
 def _save_findings(output_dir: Path) -> None:
-    out = output_dir / "findings_spectre.json"
+    out = output_dir / "findings_crucible.json"
     out.write_text(json.dumps(_findings_collected, indent=2), encoding="utf-8")
     _log(f"Findings written: {out} ({len(_findings_collected)} item(s))")
 

@@ -347,11 +347,11 @@ When Aether-Z is launched by the Crucible platform (environment variable `CRUCIB
 all output uses structured protocol tokens:
 
 ```
-__SPECTRE_LOG__    <plain text log message>
-__SPECTRE_ERR__    <plain text error message>
-__SPECTRE_STATUS__ {"phase": "...", "status": "running|complete|skipped|error", "step": "...", "ts": "..."}
-__SPECTRE_FINDING__ {"id": "AETHZ-001", "title": "...", "severity": "CRITICAL", ...}
-__SPECTRE_PROMPT__ <message requiring operator confirmation>
+__CRUCIBLE_LOG__    <plain text log message>
+__CRUCIBLE_ERR__    <plain text error message>
+__CRUCIBLE_STATUS__ {"phase": "...", "status": "running|complete|skipped|error", "step": "...", "ts": "..."}
+__CRUCIBLE_FINDING__ {"id": "AETHZ-001", "title": "...", "severity": "CRITICAL", ...}
+__CRUCIBLE_PROMPT__ <message requiring operator confirmation>
 ```
 
 Crucible parses these tokens in real-time to display phase status, populate the findings table,
@@ -368,7 +368,7 @@ After an assessment, the project directory contains:
 <project>/
   aether_z_output/
     assessment_meta.json        — Assessment metadata and summary
-    findings_spectre.json       — All findings in Spectre format
+    findings_crucible.json      — All findings in Crucible format
     survey/
       zbstumbler_ch11.txt       — zbstumbler output per channel
       zbstumbler_ch15.txt
