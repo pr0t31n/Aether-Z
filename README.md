@@ -54,6 +54,9 @@ Security testing is a professional discipline with significant ethical and legal
 
 ---
 
+
+> **[View full documentation on the Codex Wiki](https://wiki.pr0t31n.com/tools/aether-z)** — detailed features, CLI reference, findings catalogue, and integration guides.
+
 ## Overview
 
 Aether-Z is a multi-phase ZigBee security assessment orchestrator. It automates passive
