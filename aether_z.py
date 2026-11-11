@@ -53,6 +53,14 @@ from typing import Optional
 # ── Protocol token configuration ─────────────────────────────────────────────
 MANAGED = os.environ.get("CRUCIBLE_MANAGED") == "1"
 
+try:
+    import sys as _sys_ie
+    if "/opt/pr0t31n/shared" not in _sys_ie.path:
+        _sys_ie.path.insert(0, "/opt/pr0t31n/shared")
+    import pr0t31n_intel_emitter as _ie
+except ImportError:
+    _ie = None
+
 _CP_LOG     = "__CRUCIBLE_LOG__"
 _CP_ERR     = "__CRUCIBLE_ERR__"
 _CP_STATUS  = "__CRUCIBLE_STATUS__"
@@ -555,6 +563,20 @@ def phase_survey(cfg: dict, project_dir: Path) -> None:
     # ── Persist survey results ────────────────────────────────────────────
     survey_json = survey_dir / "discovered_pans.json"
     survey_json.write_text(json.dumps(discovered_pans, indent=2), encoding="utf-8")
+    if _ie and MANAGED:
+        try:
+            _pan_rows = []
+            for _pan in discovered_pans:
+                _pan_rows.append({
+                    "panid":             _pan.get("panid", ""),
+                    "coordinator_eui64": _pan.get("coordinator_eui64", ""),
+                    "channel":           _pan.get("channel", 0),
+                    "source":            _pan.get("source", ""),
+                })
+            if _pan_rows:
+                _ie.emit_intel("zigbee_network", _pan_rows, bulk=True)
+        except Exception:
+            pass
     _log(f"[0] Survey complete — {len(discovered_pans)} PAN(s) discovered")
 
     # Check for permanently open join windows via zbstumbler beacon flags
@@ -797,6 +819,21 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
         json.dumps({"recovered_keys": recovered_keys, "default_tclk_seen": default_tclk_seen}, indent=2),
         encoding="utf-8",
     )
+    if _ie and MANAGED:
+        try:
+            _kr_rows = []
+            for _kr in recovered_keys:
+                _kr_rows.append({
+                    "panid":       _kr.get("panid", ""),
+                    "eui64":       _kr.get("eui64", ""),
+                    "key_type":    _kr.get("type", ""),
+                    "source":      _kr.get("source", ""),
+                    "key_partial": _kr.get("key", "")[:8] + "..." if _kr.get("key") else "",
+                })
+            if _kr_rows:
+                _ie.emit_intel("zigbee_network", _kr_rows, bulk=True)
+        except Exception:
+            pass
     # 2026-06-11 review round 5: ZigBee 3.0 install-code derivation
     try:
         _zigbee3_install_code_derive(cfg, output_dir, recovered_keys)
@@ -1094,6 +1131,21 @@ def phase_enumeration(cfg: dict, project_dir: Path) -> None:
     # ── Persist enumeration results ───────────────────────────────────────
     enum_json = enum_dir / "devices_found.json"
     enum_json.write_text(json.dumps(devices_found, indent=2), encoding="utf-8")
+    if _ie and MANAGED:
+        try:
+            _dev_rows = []
+            for _zd in devices_found:
+                _dev_rows.append({
+                    "eui64":      _zd.get("eui64", ""),
+                    "short_addr": _zd.get("short_addr", ""),
+                    "panid":      _zd.get("panid", ""),
+                    "device_type": _zd.get("device_type", ""),
+                    "endpoints":  _zd.get("endpoints", []),
+                })
+            if _dev_rows:
+                _ie.emit_intel("zigbee_device", _dev_rows, bulk=True)
+        except Exception:
+            pass
     _log(f"[2] Enumeration complete — {len(devices_found)} device(s) identified")
     _status(phase_id, "complete", f"{len(devices_found)} device(s) identified")
 
