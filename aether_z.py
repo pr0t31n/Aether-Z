@@ -158,16 +158,19 @@ _fdb = None
 
 def _init_fdb():
     global _fdb
-    _db_path = os.environ.get("PR0T31N_FINDINGS_DB")
-    if _db_path:
-        try:
-            import sys as _s
-            if "/opt/pr0t31n/shared" not in _s.path:
-                _s.path.insert(0, "/opt/pr0t31n/shared")
-            import pr0t31n_findings_db
-            _fdb = pr0t31n_findings_db.FindingsDB(_db_path)
-        except Exception:
-            pass
+    _db_path = os.environ.get("PR0T31N_FINDINGS_DB") or (str(_RUN_DIR / "findings.db") if _RUN_DIR else None)
+    if not _db_path:
+        return
+    try:
+        import sys as _s
+        if "/opt/pr0t31n/shared" not in _s.path:
+            _s.path.insert(0, "/opt/pr0t31n/shared")
+        import pr0t31n_findings_db
+        _fdb = pr0t31n_findings_db.FindingsDB(_db_path)
+    except Exception:
+        pass
+    if _fdb and _ie:
+        _ie.init_db(_fdb)
 
 
 # ── Scope enforcement state ───────────────────────────────────────────────────
@@ -562,8 +565,7 @@ def phase_survey(cfg: dict, project_dir: Path) -> None:
 
     # ── Persist survey results ────────────────────────────────────────────
     survey_json = survey_dir / "discovered_pans.json"
-    survey_json.write_text(json.dumps(discovered_pans, indent=2), encoding="utf-8")
-    if _ie and MANAGED:
+    if _ie:
         try:
             _pan_rows = []
             for _pan in discovered_pans:
@@ -577,6 +579,7 @@ def phase_survey(cfg: dict, project_dir: Path) -> None:
                 _ie.emit_intel("zigbee_network", _pan_rows, bulk=True)
         except Exception:
             pass
+    survey_json.write_text(json.dumps(discovered_pans, indent=2), encoding="utf-8")
     _log(f"[0] Survey complete — {len(discovered_pans)} PAN(s) discovered")
 
     # Check for permanently open join windows via zbstumbler beacon flags
@@ -815,11 +818,7 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
 
     # ── Save recovered keys ───────────────────────────────────────────────
     keys_json = key_dir / "recovered_keys.json"
-    keys_json.write_text(
-        json.dumps({"recovered_keys": recovered_keys, "default_tclk_seen": default_tclk_seen}, indent=2),
-        encoding="utf-8",
-    )
-    if _ie and MANAGED:
+    if _ie:
         try:
             _kr_rows = []
             for _kr in recovered_keys:
@@ -834,6 +833,10 @@ def phase_key_recovery(cfg: dict, project_dir: Path) -> None:
                 _ie.emit_intel("zigbee_network", _kr_rows, bulk=True)
         except Exception:
             pass
+    keys_json.write_text(
+        json.dumps({"recovered_keys": recovered_keys, "default_tclk_seen": default_tclk_seen}, indent=2),
+        encoding="utf-8",
+    )
     # 2026-06-11 review round 5: ZigBee 3.0 install-code derivation
     try:
         _zigbee3_install_code_derive(cfg, output_dir, recovered_keys)
@@ -1130,8 +1133,7 @@ def phase_enumeration(cfg: dict, project_dir: Path) -> None:
 
     # ── Persist enumeration results ───────────────────────────────────────
     enum_json = enum_dir / "devices_found.json"
-    enum_json.write_text(json.dumps(devices_found, indent=2), encoding="utf-8")
-    if _ie and MANAGED:
+    if _ie:
         try:
             _dev_rows = []
             for _zd in devices_found:
@@ -1146,6 +1148,7 @@ def phase_enumeration(cfg: dict, project_dir: Path) -> None:
                 _ie.emit_intel("zigbee_device", _dev_rows, bulk=True)
         except Exception:
             pass
+    enum_json.write_text(json.dumps(devices_found, indent=2), encoding="utf-8")
     _log(f"[2] Enumeration complete — {len(devices_found)} device(s) identified")
     _status(phase_id, "complete", f"{len(devices_found)} device(s) identified")
 
@@ -1601,6 +1604,7 @@ def run(cfg: dict, project_dir: Path) -> None:
     output_dir = project_dir / cfg.get("output_dir", "aether_z_output")
     output_dir.mkdir(parents=True, exist_ok=True)
     _RUN_DIR = output_dir
+    _init_fdb()
 
     # Scope enforcement
     scope_cfg = cfg.get("scope", {})
@@ -1794,7 +1798,6 @@ def main() -> None:
 
     _load_catalogue()
     _startup_tool_check()
-    _init_fdb()
 
     config_path = Path(args.config)
     cfg = _load_config(config_path)
