@@ -43,6 +43,7 @@ try:
     import pr0t31n_tool_runner as _ur
 except ImportError:
     _ur = None
+import tempfile
 import threading
 import time
 import uuid
@@ -81,6 +82,63 @@ try:
 except ImportError:
     _pp = None
 _PAUSE = None
+
+
+# ── Per-phase checkpoint manager (inlined; will migrate to shared module) ─────
+
+class _ProgressManager:
+    """Thread-safe checkpoint for scan recovery."""
+    def __init__(self, checkpoint_file):
+        self._file = Path(checkpoint_file)
+        self._lock = threading.Lock()
+        self._state = self._load()
+    def _load(self):
+        if self._file.exists():
+            try:
+                data = json.loads(self._file.read_text(encoding="utf-8"))
+                data.setdefault("version", 1)
+                data.setdefault("completed_phases", [])
+                data.setdefault("phase_status", {})
+                return data
+            except Exception:
+                pass
+        return {"version": 1, "started": datetime.now(timezone.utc).isoformat(),
+                "completed_phases": [], "phase_status": {}}
+    def _save(self):
+        self._file.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(self._file.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(self._state, f, indent=2)
+            os.replace(tmp, str(self._file))
+        except Exception:
+            try: os.unlink(tmp)
+            except Exception: pass
+    def is_phase_complete(self, phase):
+        with self._lock:
+            return phase in self._state.get("completed_phases", [])
+    def set_phase_status(self, phase, status, label="", detail=""):
+        with self._lock:
+            self._state.setdefault("phase_status", {})[phase] = {
+                "status": status, "label": label or phase,
+                "detail": detail, "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if status == "complete":
+                lst = self._state.setdefault("completed_phases", [])
+                if phase not in lst:
+                    lst.append(phase)
+            self._save()
+    def prepare_resume(self):
+        with self._lock:
+            ps = self._state.get("phase_status", {})
+            for k, v in ps.items():
+                if v.get("status") in ("running", "error"):
+                    v["status"] = "pending"
+                    v["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._save()
+            return dict(self._state)
+
+_CHECKPOINT: "_ProgressManager | None" = None
 
 
 def _check_pause():
@@ -1606,6 +1664,10 @@ def run(cfg: dict, project_dir: Path) -> None:
     _RUN_DIR = output_dir
     _init_fdb()
 
+    global _CHECKPOINT
+    _CHECKPOINT = _ProgressManager(output_dir / "checkpoint.json")
+    _CHECKPOINT.prepare_resume()
+
     # Scope enforcement
     scope_cfg = cfg.get("scope", {})
     _scope_panids = {p.upper() for p in scope_cfg.get("panids", [])}
@@ -1641,42 +1703,62 @@ def run(cfg: dict, project_dir: Path) -> None:
     _check_pause()
 
     # Phase 0 — Survey
-    if phases_cfg.get("survey", True):
+    if _CHECKPOINT.is_phase_complete("p0_survey"):
+        _log("[✓] Phase 0 (Survey) already complete — skipping")
+    elif phases_cfg.get("survey", True):
         phase_survey(cfg, output_dir)
+        _CHECKPOINT.set_phase_status("p0_survey", "complete", "Phase 0: Survey")
     else:
         _log("[~] Phase survey disabled in config — skipping")
+        _CHECKPOINT.set_phase_status("p0_survey", "complete", "Phase 0: Survey (disabled)")
 
     _check_pause()
 
     # Phase 1 — Key Recovery
-    if phases_cfg.get("key_recovery", True):
+    if _CHECKPOINT.is_phase_complete("p1_key_recovery"):
+        _log("[✓] Phase 1 (Key Recovery) already complete — skipping")
+    elif phases_cfg.get("key_recovery", True):
         phase_key_recovery(cfg, output_dir)
+        _CHECKPOINT.set_phase_status("p1_key_recovery", "complete", "Phase 1: Key Recovery")
     else:
         _log("[~] Phase key_recovery disabled in config — skipping")
+        _CHECKPOINT.set_phase_status("p1_key_recovery", "complete", "Phase 1: Key Recovery (disabled)")
 
     _check_pause()
 
     # Phase 2 — Enumeration
-    if phases_cfg.get("enumeration", True):
+    if _CHECKPOINT.is_phase_complete("p2_enumeration"):
+        _log("[✓] Phase 2 (Enumeration) already complete — skipping")
+    elif phases_cfg.get("enumeration", True):
         phase_enumeration(cfg, output_dir)
+        _CHECKPOINT.set_phase_status("p2_enumeration", "complete", "Phase 2: Enumeration")
     else:
         _log("[~] Phase enumeration disabled in config — skipping")
+        _CHECKPOINT.set_phase_status("p2_enumeration", "complete", "Phase 2: Enumeration (disabled)")
 
     _check_pause()
 
     # Phase 3 — Attacks
-    if phases_cfg.get("attacks", False):
+    if _CHECKPOINT.is_phase_complete("p3_attacks"):
+        _log("[✓] Phase 3 (Attacks) already complete — skipping")
+    elif phases_cfg.get("attacks", False):
         phase_attacks(cfg, output_dir)
+        _CHECKPOINT.set_phase_status("p3_attacks", "complete", "Phase 3: Attacks")
     else:
         _log("[~] Phase attacks disabled in config — skipping (set attacks: true to enable)")
+        _CHECKPOINT.set_phase_status("p3_attacks", "complete", "Phase 3: Attacks (disabled)")
 
     _check_pause()
 
     # Phase 4 — Firmware
-    if phases_cfg.get("firmware", False):
+    if _CHECKPOINT.is_phase_complete("p4_firmware"):
+        _log("[✓] Phase 4 (Firmware) already complete — skipping")
+    elif phases_cfg.get("firmware", False):
         phase_firmware(cfg, output_dir)
+        _CHECKPOINT.set_phase_status("p4_firmware", "complete", "Phase 4: Firmware")
     else:
         _log("[~] Phase firmware disabled in config — skipping (set firmware: true to enable)")
+        _CHECKPOINT.set_phase_status("p4_firmware", "complete", "Phase 4: Firmware (disabled)")
 
     # Persist findings and metadata
     _save_findings(output_dir)
